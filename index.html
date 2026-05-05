@@ -461,6 +461,7 @@
       <input type="range" id="scrubber" min="0" value="0" disabled />
 
       <span id="counter">— / —</span>
+      <button class="ctrl-btn" id="copy-link-btn" title="Copy permalink to this repo">🔗</button>
 
       <select id="speed-select" title="Playback speed">
         <option value="4000">0.25×</option>
@@ -678,6 +679,7 @@
     REPO = repo;
     API  = `https://api.github.com/repos/${REPO}/commits?per_page=100`;
     PREVIEW_BASE = `https://htmlpreview.github.io/?https://github.com/${REPO}/blob/`;
+    location.hash = repo;
 
     try {
       commits = await fetchAllCommits();
@@ -700,6 +702,22 @@
   }
 
   $('repo-form').addEventListener('submit', e => { e.preventDefault(); loadRepo(); });
+
+  // ── COPY LINK ──
+  $('copy-link-btn').addEventListener('click', () => {
+    navigator.clipboard.writeText(location.href).then(() => {
+      const btn = $('copy-link-btn');
+      btn.textContent = '✓';
+      setTimeout(() => { btn.textContent = '🔗'; }, 1500);
+    });
+  });
+
+  // ── HASH → pre-fill input ──
+  const hash = location.hash.slice(1);
+  if (hash) {
+    const fromHash = parseRepo(decodeURIComponent(hash));
+    if (fromHash) $('repo-input').value = fromHash;
+  }
 
   // ── THEME TOGGLE ──
   const saved = localStorage.getItem('theme') ?? 'light';
