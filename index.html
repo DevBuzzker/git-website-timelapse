@@ -477,7 +477,8 @@
 <script>
   let REPO = 'DevBuzzker/primer-team1-pigeon';
   let API  = `https://api.github.com/repos/${REPO}/commits?per_page=100`;
-  let PREVIEW_BASE = `https://htmlpreview.github.io/?https://github.com/${REPO}/blob/`;
+
+  let savedScrollY = 0;
 
   let commits = [];
   let current = -1;
@@ -564,19 +565,34 @@
     $('next-btn').disabled = i === commits.length - 1;
     $('last-btn').disabled = i === commits.length - 1;
 
-    // preview
-    showLoading();
-    $('preview').src = PREVIEW_BASE + c.sha + '/index.html';
-  }
+    // save scroll position before switching
+    try { savedScrollY = $('preview').contentWindow.scrollY || 0; } catch(e) { savedScrollY = 0; }
 
-  function showLoading() {
     const ov = $('overlay-msg');
     ov.innerHTML = '<div class="spinner"></div><span>Loading preview…</span>';
     ov.style.display = 'flex';
-    $('preview').onload = () => { ov.style.display = 'none'; };
-    $('preview').onerror = () => {
-      ov.innerHTML = '<span>⚠ Preview unavailable for this commit</span>';
-    };
+
+    // jsDelivr serves files with correct MIME types (unlike raw.githubusercontent.com)
+    const base = `https://cdn.jsdelivr.net/gh/${REPO}@${c.sha}/`;
+    fetch(base + 'index.html')
+      .then(r => { if (!r.ok) throw new Error(r.status); return r.text(); })
+      .then(html => {
+        // inject <base> so relative CSS/JS/img paths resolve via jsDelivr
+        if (/<base[\s>]/i.test(html)) {
+          html = html.replace(/<base[^>]*>/i, `<base href="${base}">`);
+        } else {
+          html = html.replace(/(<head[^>]*>)/i, `$1<base href="${base}">`);
+        }
+        const frame = $('preview');
+        frame.srcdoc = html;
+        frame.onload = () => {
+          ov.style.display = 'none';
+          try { frame.contentWindow.scrollTo({ top: savedScrollY, behavior: 'instant' }); } catch(e) {}
+        };
+      })
+      .catch(() => {
+        ov.innerHTML = '<span>⚠ Preview unavailable for this commit</span>';
+      });
   }
 
   // ── PLAYBACK ──
@@ -678,7 +694,6 @@
 
     REPO = repo;
     API  = `https://api.github.com/repos/${REPO}/commits?per_page=100`;
-    PREVIEW_BASE = `https://htmlpreview.github.io/?https://github.com/${REPO}/blob/`;
     location.hash = repo;
 
     try {
@@ -694,6 +709,7 @@
       $('play-btn').disabled = false;
 
       goTo(0);
+      play();
     } catch (err) {
       $('loading-msg').textContent = '⚠ Error loading commits';
       $('overlay-msg').innerHTML = '<span>⚠ Could not load commits — check the repo name</span>';
