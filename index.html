@@ -7,14 +7,50 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    /* ── THEME TOKENS ── */
+    :root {
+      --bg:        #0d1117;
+      --surface:   #161b22;
+      --surface2:  #21262d;
+      --border:    #30363d;
+      --border2:   #21262d;
+      --text:      #e6edf3;
+      --text-muted:#8b949e;
+      --text-dim:  #484f58;
+      --accent:    #58a6ff;
+      --accent2:   #79c0ff;
+      --active-bg: #1f2d3d;
+      --hover-bg:  #1c2128;
+      --hover-btn: #2d333b;
+      --preview-bg:#010409;
+    }
+
+    [data-theme="light"] {
+      --bg:        #ffffff;
+      --surface:   #f6f8fa;
+      --surface2:  #eaeef2;
+      --border:    #d0d7de;
+      --border2:   #eaeef2;
+      --text:      #1f2328;
+      --text-muted:#656d76;
+      --text-dim:  #b0bac4;
+      --accent:    #0969da;
+      --accent2:   #0550ae;
+      --active-bg: #dbeafe;
+      --hover-bg:  #f3f4f6;
+      --hover-btn: #e5e7eb;
+      --preview-bg:#f0f2f5;
+    }
+
     body {
       font-family: 'Segoe UI', system-ui, sans-serif;
-      background: #0d1117;
-      color: #e6edf3;
+      background: var(--bg);
+      color: var(--text);
       height: 100vh;
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      transition: background .2s, color .2s;
     }
 
     /* ── TOP BAR ── */
@@ -23,15 +59,15 @@
       align-items: center;
       gap: 12px;
       padding: 10px 16px;
-      background: #161b22;
-      border-bottom: 1px solid #30363d;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
       flex-shrink: 0;
     }
 
     #topbar h1 {
       font-size: 14px;
       font-weight: 600;
-      color: #58a6ff;
+      color: var(--accent);
       white-space: nowrap;
     }
 
@@ -44,19 +80,19 @@
 
     #repo-input {
       flex: 1;
-      background: #0d1117;
-      border: 1px solid #30363d;
-      color: #e6edf3;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      color: var(--text);
       border-radius: 6px;
       padding: 4px 10px;
       font-size: 12px;
       font-family: monospace;
       outline: none;
       min-width: 0;
-      transition: border-color .15s;
+      transition: border-color .15s, background .2s, color .2s;
     }
-    #repo-input:focus { border-color: #58a6ff; }
-    #repo-input::placeholder { color: #484f58; }
+    #repo-input:focus { border-color: var(--accent); }
+    #repo-input::placeholder { color: var(--text-dim); }
 
     #repo-submit {
       background: #238636;
@@ -73,10 +109,47 @@
     #repo-submit:hover { background: #2ea043; }
 
     #loading-msg {
-      margin-left: auto;
       font-size: 12px;
-      color: #8b949e;
+      color: var(--text-muted);
     }
+
+    /* ── THEME TOGGLE ── */
+    #theme-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    #theme-toggle .icon { font-size: 14px; }
+
+    .toggle-track {
+      width: 36px;
+      height: 20px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      position: relative;
+      transition: background .2s;
+    }
+
+    [data-theme="light"] .toggle-track { background: var(--accent); border-color: var(--accent); }
+
+    .toggle-thumb {
+      width: 14px;
+      height: 14px;
+      background: #fff;
+      border-radius: 50%;
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      transition: transform .2s;
+      box-shadow: 0 1px 3px rgba(0,0,0,.3);
+    }
+
+    [data-theme="light"] .toggle-thumb { transform: translateX(16px); }
 
     /* ── MAIN LAYOUT ── */
     #main {
@@ -89,11 +162,12 @@
     #sidebar {
       width: 260px;
       flex-shrink: 0;
-      background: #161b22;
-      border-right: 1px solid #30363d;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      transition: background .2s;
     }
 
     #sidebar-header {
@@ -102,8 +176,8 @@
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: .06em;
-      color: #8b949e;
-      border-bottom: 1px solid #30363d;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
       flex-shrink: 0;
     }
 
@@ -111,12 +185,12 @@
       flex: 1;
       overflow-y: auto;
       scrollbar-width: thin;
-      scrollbar-color: #30363d transparent;
+      scrollbar-color: var(--border) transparent;
     }
 
     .commit-item {
       padding: 10px 12px;
-      border-bottom: 1px solid #21262d;
+      border-bottom: 1px solid var(--border2);
       cursor: pointer;
       transition: background .12s;
       display: flex;
@@ -124,13 +198,13 @@
       gap: 3px;
     }
 
-    .commit-item:hover { background: #1c2128; }
-    .commit-item.active { background: #1f2d3d; border-left: 3px solid #58a6ff; }
+    .commit-item:hover { background: var(--hover-bg); }
+    .commit-item.active { background: var(--active-bg); border-left: 3px solid var(--accent); }
 
     .commit-item .msg {
       font-size: 12px;
       line-height: 1.4;
-      color: #e6edf3;
+      color: var(--text);
       overflow: hidden;
       display: -webkit-box;
       -webkit-line-clamp: 2;
@@ -139,18 +213,18 @@
 
     .commit-item .meta {
       font-size: 11px;
-      color: #8b949e;
+      color: var(--text-muted);
       display: flex;
       gap: 6px;
     }
 
     .commit-item .sha-tag {
       font-family: monospace;
-      background: #21262d;
+      background: var(--surface2);
       border-radius: 4px;
       padding: 1px 4px;
       font-size: 10px;
-      color: #79c0ff;
+      color: var(--accent2);
     }
 
     /* ── VIEWER ── */
@@ -164,12 +238,13 @@
     /* ── COMMIT INFO BAR ── */
     #commit-info {
       padding: 8px 16px;
-      background: #161b22;
-      border-bottom: 1px solid #30363d;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
       flex-shrink: 0;
       display: flex;
       align-items: flex-start;
       gap: 12px;
+      transition: background .2s;
     }
 
     #commit-avatar {
@@ -177,7 +252,7 @@
       height: 28px;
       border-radius: 50%;
       flex-shrink: 0;
-      background: #30363d;
+      background: var(--border);
       object-fit: cover;
     }
 
@@ -189,36 +264,36 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      color: #e6edf3;
+      color: var(--text);
     }
 
     #commit-sub {
       font-size: 11px;
-      color: #8b949e;
+      color: var(--text-muted);
       margin-top: 2px;
     }
 
-    #commit-sub span { color: #79c0ff; font-family: monospace; }
+    #commit-sub span { color: var(--accent2); font-family: monospace; }
 
     #open-gh {
       font-size: 11px;
-      color: #58a6ff;
+      color: var(--accent);
       text-decoration: none;
       flex-shrink: 0;
       padding: 4px 8px;
-      border: 1px solid #30363d;
+      border: 1px solid var(--border);
       border-radius: 6px;
       white-space: nowrap;
       transition: background .12s;
     }
-    #open-gh:hover { background: #1c2128; }
+    #open-gh:hover { background: var(--hover-bg); }
 
     /* ── IFRAME ── */
     #preview-wrap {
       flex: 1;
       position: relative;
       overflow: hidden;
-      background: #010409;
+      background: var(--preview-bg);
     }
 
     #preview {
@@ -236,15 +311,15 @@
       flex-direction: column;
       gap: 10px;
       font-size: 14px;
-      color: #8b949e;
+      color: var(--text-muted);
       pointer-events: none;
     }
 
     .spinner {
       width: 28px;
       height: 28px;
-      border: 3px solid #30363d;
-      border-top-color: #58a6ff;
+      border: 3px solid var(--border);
+      border-top-color: var(--accent);
       border-radius: 50%;
       animation: spin .7s linear infinite;
     }
@@ -254,18 +329,19 @@
     /* ── CONTROLS ── */
     #controls {
       padding: 10px 16px;
-      background: #161b22;
-      border-top: 1px solid #30363d;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
       flex-shrink: 0;
       display: flex;
       align-items: center;
       gap: 12px;
+      transition: background .2s;
     }
 
     .ctrl-btn {
-      background: #21262d;
-      border: 1px solid #30363d;
-      color: #e6edf3;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
       border-radius: 6px;
       width: 32px;
       height: 32px;
@@ -277,7 +353,7 @@
       transition: background .12s;
       font-size: 14px;
     }
-    .ctrl-btn:hover:not(:disabled) { background: #2d333b; }
+    .ctrl-btn:hover:not(:disabled) { background: var(--hover-btn); }
     .ctrl-btn:disabled { opacity: .35; cursor: default; }
 
     #play-btn {
@@ -285,9 +361,10 @@
       height: 38px;
       background: #238636;
       border-color: #2ea043;
+      color: #fff;
       font-size: 16px;
     }
-    #play-btn:hover { background: #2ea043; }
+    #play-btn:hover:not(:disabled) { background: #2ea043; }
     #play-btn.playing { background: #6e3a3a; border-color: #b44; }
     #play-btn.playing:hover { background: #8a4040; }
 
@@ -296,7 +373,7 @@
       -webkit-appearance: none;
       appearance: none;
       height: 4px;
-      background: #30363d;
+      background: var(--border);
       border-radius: 2px;
       outline: none;
       cursor: pointer;
@@ -306,7 +383,7 @@
       width: 14px;
       height: 14px;
       border-radius: 50%;
-      background: #58a6ff;
+      background: var(--accent);
       cursor: pointer;
       transition: transform .1s;
     }
@@ -314,32 +391,20 @@
 
     #counter {
       font-size: 12px;
-      color: #8b949e;
+      color: var(--text-muted);
       white-space: nowrap;
       min-width: 60px;
       text-align: right;
     }
 
     #speed-select {
-      background: #21262d;
-      border: 1px solid #30363d;
-      color: #e6edf3;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      color: var(--text);
       border-radius: 6px;
       padding: 4px 6px;
       font-size: 12px;
       cursor: pointer;
-    }
-
-    /* ── EMPTY STATE ── */
-    #empty {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-direction: column;
-      gap: 10px;
-      color: #8b949e;
-      font-size: 14px;
     }
   </style>
 </head>
@@ -354,6 +419,11 @@
     <button id="repo-submit" type="submit">Load</button>
   </form>
   <span id="loading-msg"></span>
+  <label id="theme-toggle" title="Toggle light/dark mode">
+    <span class="icon">🌙</span>
+    <div class="toggle-track"><div class="toggle-thumb"></div></div>
+    <span class="icon">☀️</span>
+  </label>
 </div>
 
 <!-- MAIN -->
@@ -625,6 +695,16 @@
   }
 
   $('repo-form').addEventListener('submit', e => { e.preventDefault(); loadRepo(); });
+
+  // ── THEME TOGGLE ──
+  const saved = localStorage.getItem('theme') ?? 'light';
+  if (saved === 'light') document.documentElement.dataset.theme = 'light';
+
+  $('theme-toggle').addEventListener('click', () => {
+    const next = document.documentElement.dataset.theme === 'light' ? 'dark' : 'light';
+    document.documentElement.dataset.theme = next === 'dark' ? '' : next;
+    localStorage.setItem('theme', next);
+  });
 
   loadRepo();
 </script>
