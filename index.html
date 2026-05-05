@@ -35,14 +35,42 @@
       white-space: nowrap;
     }
 
-    #topbar .repo-badge {
-      font-size: 12px;
-      color: #8b949e;
-      background: #21262d;
-      border: 1px solid #30363d;
-      border-radius: 6px;
-      padding: 3px 8px;
+    #repo-form {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex: 1;
     }
+
+    #repo-input {
+      flex: 1;
+      background: #0d1117;
+      border: 1px solid #30363d;
+      color: #e6edf3;
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-family: monospace;
+      outline: none;
+      min-width: 0;
+      transition: border-color .15s;
+    }
+    #repo-input:focus { border-color: #58a6ff; }
+    #repo-input::placeholder { color: #484f58; }
+
+    #repo-submit {
+      background: #238636;
+      border: 1px solid #2ea043;
+      color: #fff;
+      border-radius: 6px;
+      padding: 4px 12px;
+      font-size: 12px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background .12s;
+      flex-shrink: 0;
+    }
+    #repo-submit:hover { background: #2ea043; }
 
     #loading-msg {
       margin-left: auto;
@@ -320,8 +348,12 @@
 <!-- TOP BAR -->
 <div id="topbar">
   <h1>⏱ Git Timelapse</h1>
-  <span class="repo-badge">DevBuzzker / primer-team1-pigeon</span>
-  <span id="loading-msg">Loading commits…</span>
+  <form id="repo-form">
+    <input id="repo-input" type="text" placeholder="owner/repo or full GitHub URL"
+           value="DevBuzzker/primer-team1-pigeon" spellcheck="false" autocomplete="off" />
+    <button id="repo-submit" type="submit">Load</button>
+  </form>
+  <span id="loading-msg"></span>
 </div>
 
 <!-- MAIN -->
@@ -372,9 +404,9 @@
 </div>
 
 <script>
-  const REPO = 'DevBuzzker/primer-team1-pigeon';
-  const API  = `https://api.github.com/repos/${REPO}/commits?per_page=100`;
-  const PREVIEW_BASE = `https://htmlpreview.github.io/?https://github.com/${REPO}/blob/`;
+  let REPO = 'DevBuzzker/primer-team1-pigeon';
+  let API  = `https://api.github.com/repos/${REPO}/commits?per_page=100`;
+  let PREVIEW_BASE = `https://htmlpreview.github.io/?https://github.com/${REPO}/blob/`;
 
   let commits = [];
   let current = -1;
@@ -537,10 +569,45 @@
     return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
 
-  (async () => {
+  function parseRepo(raw) {
+    raw = raw.trim();
+    const match = raw.match(/github\.com\/([^/]+\/[^/\s?#]+)/);
+    if (match) return match[1].replace(/\.git$/, '');
+    if (/^[\w.-]+\/[\w.-]+$/.test(raw)) return raw;
+    return null;
+  }
+
+  async function loadRepo() {
+    const input = $('repo-input').value;
+    const repo = parseRepo(input);
+    if (!repo) {
+      $('loading-msg').textContent = '⚠ Invalid repo';
+      return;
+    }
+
+    stop();
+    commits = [];
+    current = -1;
+    $('commit-list').innerHTML = '';
+    $('preview').src = '';
+    $('overlay-msg').style.display = 'flex';
+    $('overlay-msg').innerHTML = '<div class="spinner"></div><span>Loading commits…</span>';
+    $('commit-msg').textContent = 'Loading…';
+    $('commit-sub').innerHTML = '&nbsp;';
+    $('open-gh').style.display = 'none';
+    $('play-btn').disabled = true;
+    $('scrubber').disabled = true;
+    ['prev-btn','next-btn','first-btn','last-btn'].forEach(id => $(id).disabled = true);
+    $('loading-msg').textContent = '';
+
+    REPO = repo;
+    API  = `https://api.github.com/repos/${REPO}/commits?per_page=100`;
+    PREVIEW_BASE = `https://htmlpreview.github.io/?https://github.com/${REPO}/blob/`;
+
     try {
       commits = await fetchAllCommits();
       $('loading-msg').textContent = `${commits.length} commits`;
+      $('overlay-msg').style.display = 'none';
 
       buildList();
 
@@ -551,10 +618,15 @@
 
       goTo(0);
     } catch (err) {
-      $('loading-msg').textContent = 'Error loading commits';
+      $('loading-msg').textContent = '⚠ Error loading commits';
+      $('overlay-msg').innerHTML = '<span>⚠ Could not load commits — check the repo name</span>';
       console.error(err);
     }
-  })();
+  }
+
+  $('repo-form').addEventListener('submit', e => { e.preventDefault(); loadRepo(); });
+
+  loadRepo();
 </script>
 </body>
 </html>
