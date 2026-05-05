@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Git Timelapse Player</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── TOP BAR ── */
+    #topbar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 16px;
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      flex-shrink: 0;
+    }
+
+    #topbar h1 {
+      font-size: 14px;
+      font-weight: 600;
+      color: #58a6ff;
+      white-space: nowrap;
+    }
+
+    #topbar .repo-badge {
+      font-size: 12px;
+      color: #8b949e;
+      background: #21262d;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      padding: 3px 8px;
+    }
+
+    #loading-msg {
+      margin-left: auto;
+      font-size: 12px;
+      color: #8b949e;
+    }
+
+    /* ── MAIN LAYOUT ── */
+    #main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ── SIDEBAR ── */
+    #sidebar {
+      width: 260px;
+      flex-shrink: 0;
+      background: #161b22;
+      border-right: 1px solid #30363d;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    #sidebar-header {
+      padding: 10px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: #8b949e;
+      border-bottom: 1px solid #30363d;
+      flex-shrink: 0;
+    }
+
+    #commit-list {
+      flex: 1;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: #30363d transparent;
+    }
+
+    .commit-item {
+      padding: 10px 12px;
+      border-bottom: 1px solid #21262d;
+      cursor: pointer;
+      transition: background .12s;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .commit-item:hover { background: #1c2128; }
+    .commit-item.active { background: #1f2d3d; border-left: 3px solid #58a6ff; }
+
+    .commit-item .msg {
+      font-size: 12px;
+      line-height: 1.4;
+      color: #e6edf3;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+    }
+
+    .commit-item .meta {
+      font-size: 11px;
+      color: #8b949e;
+      display: flex;
+      gap: 6px;
+    }
+
+    .commit-item .sha-tag {
+      font-family: monospace;
+      background: #21262d;
+      border-radius: 4px;
+      padding: 1px 4px;
+      font-size: 10px;
+      color: #79c0ff;
+    }
+
+    /* ── VIEWER ── */
+    #viewer {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* ── COMMIT INFO BAR ── */
+    #commit-info {
+      padding: 8px 16px;
+      background: #161b22;
+      border-bottom: 1px solid #30363d;
+      flex-shrink: 0;
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    #commit-avatar {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      flex-shrink: 0;
+      background: #30363d;
+      object-fit: cover;
+    }
+
+    #commit-text { flex: 1; min-width: 0; }
+
+    #commit-msg {
+      font-size: 13px;
+      font-weight: 500;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: #e6edf3;
+    }
+
+    #commit-sub {
+      font-size: 11px;
+      color: #8b949e;
+      margin-top: 2px;
+    }
+
+    #commit-sub span { color: #79c0ff; font-family: monospace; }
+
+    #open-gh {
+      font-size: 11px;
+      color: #58a6ff;
+      text-decoration: none;
+      flex-shrink: 0;
+      padding: 4px 8px;
+      border: 1px solid #30363d;
+      border-radius: 6px;
+      white-space: nowrap;
+      transition: background .12s;
+    }
+    #open-gh:hover { background: #1c2128; }
+
+    /* ── IFRAME ── */
+    #preview-wrap {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+      background: #010409;
+    }
+
+    #preview {
+      width: 100%;
+      height: 100%;
+      border: none;
+    }
+
+    #overlay-msg {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 14px;
+      color: #8b949e;
+      pointer-events: none;
+    }
+
+    .spinner {
+      width: 28px;
+      height: 28px;
+      border: 3px solid #30363d;
+      border-top-color: #58a6ff;
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── CONTROLS ── */
+    #controls {
+      padding: 10px 16px;
+      background: #161b22;
+      border-top: 1px solid #30363d;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .ctrl-btn {
+      background: #21262d;
+      border: 1px solid #30363d;
+      color: #e6edf3;
+      border-radius: 6px;
+      width: 32px;
+      height: 32px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      transition: background .12s;
+      font-size: 14px;
+    }
+    .ctrl-btn:hover:not(:disabled) { background: #2d333b; }
+    .ctrl-btn:disabled { opacity: .35; cursor: default; }
+
+    #play-btn {
+      width: 38px;
+      height: 38px;
+      background: #238636;
+      border-color: #2ea043;
+      font-size: 16px;
+    }
+    #play-btn:hover { background: #2ea043; }
+    #play-btn.playing { background: #6e3a3a; border-color: #b44; }
+    #play-btn.playing:hover { background: #8a4040; }
+
+    #scrubber {
+      flex: 1;
+      -webkit-appearance: none;
+      appearance: none;
+      height: 4px;
+      background: #30363d;
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+    #scrubber::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #58a6ff;
+      cursor: pointer;
+      transition: transform .1s;
+    }
+    #scrubber::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+    #counter {
+      font-size: 12px;
+      color: #8b949e;
+      white-space: nowrap;
+      min-width: 60px;
+      text-align: right;
+    }
+
+    #speed-select {
+      background: #21262d;
+      border: 1px solid #30363d;
+      color: #e6edf3;
+      border-radius: 6px;
+      padding: 4px 6px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    /* ── EMPTY STATE ── */
+    #empty {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      gap: 10px;
+      color: #8b949e;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div id="topbar">
+  <h1>⏱ Git Timelapse</h1>
+  <span class="repo-badge">DevBuzzker / primer-team1-pigeon</span>
+  <span id="loading-msg">Loading commits…</span>
+</div>
+
+<!-- MAIN -->
+<div id="main">
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div id="sidebar-header">Commits</div>
+    <div id="commit-list"></div>
+  </div>
+
+  <!-- VIEWER -->
+  <div id="viewer">
+    <div id="commit-info">
+      <img id="commit-avatar" src="" alt="" />
+      <div id="commit-text">
+        <div id="commit-msg">Select a commit to preview</div>
+        <div id="commit-sub">&nbsp;</div>
+      </div>
+      <a id="open-gh" href="#" target="_blank" rel="noopener" style="display:none">↗ GitHub</a>
+    </div>
+
+    <div id="preview-wrap">
+      <div id="overlay-msg"><span>← pick a commit or press Play</span></div>
+      <iframe id="preview" sandbox="allow-scripts allow-same-origin allow-forms" title="Site preview"></iframe>
+    </div>
+
+    <div id="controls">
+      <button class="ctrl-btn" id="first-btn" title="First commit" disabled>⏮</button>
+      <button class="ctrl-btn" id="prev-btn" title="Previous" disabled>◀</button>
+      <button class="ctrl-btn" id="play-btn" title="Play / Pause" disabled>▶</button>
+      <button class="ctrl-btn" id="next-btn" title="Next" disabled>▶</button>
+      <button class="ctrl-btn" id="last-btn" title="Last commit" disabled>⏭</button>
+
+      <input type="range" id="scrubber" min="0" value="0" disabled />
+
+      <span id="counter">— / —</span>
+
+      <select id="speed-select" title="Playback speed">
+        <option value="4000">0.25×</option>
+        <option value="2000">0.5×</option>
+        <option value="1500" selected>1×</option>
+        <option value="800">2×</option>
+        <option value="400">4×</option>
+      </select>
+    </div>
+  </div>
+</div>
+
+<script>
+  const REPO = 'DevBuzzker/primer-team1-pigeon';
+  const API  = `https://api.github.com/repos/${REPO}/commits?per_page=100`;
+  const PREVIEW_BASE = `https://htmlpreview.github.io/?https://github.com/${REPO}/blob/`;
+
+  let commits = [];
+  let current = -1;
+  let playTimer = null;
+
+  const $ = id => document.getElementById(id);
+
+  // ── FETCH ALL COMMITS (paginate) ──
+  async function fetchAllCommits() {
+    let url = API;
+    let all = [];
+    while (url) {
+      const res = await fetch(url);
+      const data = await res.json();
+      all = all.concat(data);
+      const link = res.headers.get('Link') || '';
+      const next = link.match(/<([^>]+)>;\s*rel="next"/);
+      url = next ? next[1] : null;
+    }
+    return all.reverse(); // oldest → newest
+  }
+
+  // ── BUILD SIDEBAR ──
+  function buildList() {
+    const list = $('commit-list');
+    list.innerHTML = '';
+    commits.forEach((c, i) => {
+      const msg = c.commit.message.split('\n')[0];
+      const date = new Date(c.commit.author.date).toLocaleDateString('en-GB', {day:'2-digit',month:'short',year:'numeric'});
+      const author = c.commit.author.name;
+      const sha = c.sha.slice(0, 7);
+
+      const item = document.createElement('div');
+      item.className = 'commit-item';
+      item.dataset.i = i;
+      item.innerHTML = `
+        <div class="msg">${escHtml(msg)}</div>
+        <div class="meta">
+          <span class="sha-tag">${sha}</span>
+          <span>${escHtml(author)}</span>
+          <span>${date}</span>
+        </div>`;
+      item.addEventListener('click', () => goTo(i));
+      list.appendChild(item);
+    });
+  }
+
+  // ── GO TO COMMIT ──
+  function goTo(i) {
+    if (i < 0 || i >= commits.length) return;
+    current = i;
+
+    // sidebar highlight
+    document.querySelectorAll('.commit-item').forEach(el => el.classList.remove('active'));
+    const activeEl = document.querySelector(`.commit-item[data-i="${i}"]`);
+    if (activeEl) {
+      activeEl.classList.add('active');
+      activeEl.scrollIntoView({ block: 'nearest' });
+    }
+
+    // info bar
+    const c = commits[i];
+    const msg = c.commit.message.split('\n')[0];
+    const date = new Date(c.commit.author.date).toLocaleString('en-GB');
+    const author = c.commit.author.name;
+    const sha = c.sha.slice(0, 7);
+    const avatar = c.author?.avatar_url || '';
+
+    $('commit-avatar').src = avatar;
+    $('commit-msg').textContent = msg;
+    $('commit-sub').innerHTML = `by <b>${escHtml(author)}</b> · ${date} · <span>${sha}</span>`;
+
+    const ghLink = $('open-gh');
+    ghLink.href = c.html_url;
+    ghLink.style.display = '';
+
+    // scrubber + counter
+    $('scrubber').value = i;
+    $('counter').textContent = `${i + 1} / ${commits.length}`;
+
+    // controls
+    $('prev-btn').disabled = i === 0;
+    $('first-btn').disabled = i === 0;
+    $('next-btn').disabled = i === commits.length - 1;
+    $('last-btn').disabled = i === commits.length - 1;
+
+    // preview
+    showLoading();
+    $('preview').src = PREVIEW_BASE + c.sha + '/index.html';
+  }
+
+  function showLoading() {
+    const ov = $('overlay-msg');
+    ov.innerHTML = '<div class="spinner"></div><span>Loading preview…</span>';
+    ov.style.display = 'flex';
+    $('preview').onload = () => { ov.style.display = 'none'; };
+    $('preview').onerror = () => {
+      ov.innerHTML = '<span>⚠ Preview unavailable for this commit</span>';
+    };
+  }
+
+  // ── PLAYBACK ──
+  function play() {
+    const btn = $('play-btn');
+    btn.textContent = '⏸';
+    btn.classList.add('playing');
+    btn.title = 'Pause';
+    advance();
+  }
+
+  function advance() {
+    const delay = parseInt($('speed-select').value, 10);
+    playTimer = setTimeout(() => {
+      if (current < commits.length - 1) {
+        goTo(current + 1);
+        advance();
+      } else {
+        stop();
+      }
+    }, delay);
+  }
+
+  function stop() {
+    clearTimeout(playTimer);
+    playTimer = null;
+    const btn = $('play-btn');
+    btn.textContent = '▶';
+    btn.classList.remove('playing');
+    btn.title = 'Play';
+  }
+
+  function togglePlay() {
+    if (playTimer) { stop(); return; }
+    if (current === commits.length - 1) goTo(0);
+    play();
+  }
+
+  // ── WIRE CONTROLS ──
+  $('play-btn').addEventListener('click', togglePlay);
+  $('prev-btn').addEventListener('click', () => { stop(); goTo(current - 1); });
+  $('next-btn').addEventListener('click', () => { stop(); goTo(current + 1); });
+  $('first-btn').addEventListener('click', () => { stop(); goTo(0); });
+  $('last-btn').addEventListener('click', () => { stop(); goTo(commits.length - 1); });
+
+  $('scrubber').addEventListener('input', e => {
+    stop();
+    goTo(parseInt(e.target.value, 10));
+  });
+
+  // keyboard nav
+  document.addEventListener('keydown', e => {
+    if (!commits.length) return;
+    if (e.key === 'ArrowRight') { stop(); goTo(current + 1); }
+    if (e.key === 'ArrowLeft')  { stop(); goTo(current - 1); }
+    if (e.key === ' ') { e.preventDefault(); togglePlay(); }
+  });
+
+  // ── INIT ──
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
+  (async () => {
+    try {
+      commits = await fetchAllCommits();
+      $('loading-msg').textContent = `${commits.length} commits`;
+
+      buildList();
+
+      const s = $('scrubber');
+      s.max = commits.length - 1;
+      s.disabled = false;
+      $('play-btn').disabled = false;
+
+      goTo(0);
+    } catch (err) {
+      $('loading-msg').textContent = 'Error loading commits';
+      console.error(err);
+    }
+  })();
+</script>
+</body>
+</html>
