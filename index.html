@@ -641,8 +641,13 @@
 
   function parseRepo(raw) {
     raw = raw.trim();
-    const match = raw.match(/github\.com\/([^/]+\/[^/\s?#]+)/);
-    if (match) return match[1].replace(/\.git$/, '');
+    // github.com/owner/repo
+    const ghCom = raw.match(/github\.com\/([^/]+\/[^/\s?#]+)/);
+    if (ghCom) return ghCom[1].replace(/\.git$/, '');
+    // owner.github.io/repo
+    const ghPages = raw.match(/([^/:.]+)\.github\.io\/([^/\s?#]+)/);
+    if (ghPages) return `${ghPages[1]}/${ghPages[2]}`;
+    // plain owner/repo
     if (/^[\w.-]+\/[\w.-]+$/.test(raw)) return raw;
     return null;
   }
